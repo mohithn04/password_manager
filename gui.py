@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+import customtkinter as ctk
+from tkinter import messagebox
 import tkinter as tk
-from tkinter import ttk, messagebox
 
 try:
     import pyperclip
@@ -13,190 +14,238 @@ except ImportError:
 from derive_key import get_key_from_password, load_or_create_salt
 from database import create_database, save_password, get_passwords, update_password, delete_password
 
+# Set appearance mode and theme
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+
+# Enhanced modern color palette - fixed to remove unsupported RGBA colors
+COLORS = {
+    'bg_primary': '#0f1419',        # Deeper, richer background
+    'bg_secondary': '#1a1f2e',      # More sophisticated card background
+    'bg_tertiary': '#252b3a',       # Enhanced tertiary background
+    'bg_quaternary': '#2d3548',     # Additional depth layer
+    'accent': '#667eea',            # More sophisticated blue
+    'accent_hover': '#764ba2',      # Purple-blue gradient hover
+    'accent_light': '#8b95ff',      # Light accent for highlights (fixed from RGBA)
+    'text_primary': '#f8fafc',      # Pure white text
+    'text_secondary': '#94a3b8',    # Softer secondary text
+    'text_muted': '#64748b',        # More refined muted text
+    'success': '#059669',           # Modern green
+    'success_hover': "#067E58",     # Darker green hover
+    'warning': '#f59e0b',           # Amber warning
+    'warning_hover': '#d97706',     # Orange hover
+    'danger': '#b81414',            # Modern red
+    'danger_hover': "#991010",      # Darker red hover
+    'border': '#374151',            # Subtle border
+    'shadow': '#1a1f2e',           # Subtle shadow (fixed from RGBA)
+    'glow': '#3d4f7a',             # Accent glow effect (fixed from RGBA)
+}
+
+# Enhanced typography with bigger font sizes
+FONTS = {
+    'title': ('SF Pro Display', 32, 'bold'),      # Larger title
+    'heading': ('SF Pro Display', 24, 'bold'),    # Enhanced heading
+    'subheading': ('SF Pro Display', 18, 'bold'), # Better subheading
+    'body': ('SF Pro Display', 14),               # Standard body
+    'body_medium': ('SF Pro Display', 15),        # Medium body text
+    'small': ('SF Pro Display', 12),              # Small text
+    'tiny': ('SF Pro Display', 11),               # Tiny labels
+    'button': ('SF Pro Display', 14, 'bold'),     # Button text
+    'monospace': ('SF Mono', 13),                 # For passwords
+}
+
+# Animation and timing constants
+ANIMATION = {
+    'fast': 150,
+    'medium': 250,
+    'slow': 400,
+    'fade_steps': 20,
+}
+
 class PasswordManagerGUI:
     def __init__(self):
         self.master_password = None
         self.key = None
         self.salt = load_or_create_salt()
-        self.password_data = {}
+        self.current_passwords = []
 
-        self.root = tk.Tk()
+        # Animation state
+        self.fade_alpha = 0.0
+        self.is_animating = False
+
+        # Create main window with enhanced styling
+        self.root = ctk.CTk()
         self.root.title("🔒 Password Manager")
-        self.root.geometry("1200x800")
-        #self.root.configure(bg='#0D1117')
-        self.root.resizable(True, True)
+        self.root.geometry("1300x850")  # Slightly larger for better breathing room
+        self.root.minsize(1100, 750)
 
-        # Set minimum window size
-        self.root.minsize(1000, 700)
+        # Configure for better performance
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_rowconfigure(0, weight=1)
 
-        self.setup_styles()
+        # Remove transparency fade-in - make window fully opaque
+        try:
+            self.root.attributes('-alpha', 1.0)  # Fully opaque window
+        except:
+            pass
+
         self.show_login_screen()
 
-    def setup_styles(self):
-        style = ttk.Style()
-        style.theme_use('clam')
-
-        # Clean modern styling
-        style.configure('Title.TLabel',
-                       font=('SF Pro Display', 20, 'bold'),
-                       foreground='#FFFFFF',
-                       background='#0D1117')
-
-        style.configure('Subtitle.TLabel',
-                       font=('SF Pro Display', 12),
-                       foreground='#7D8590',
-                       background='#0D1117')
-
-        style.configure('Heading.TLabel',
-                       font=('SF Pro Display', 13, 'bold'),
-                       foreground='#F0F6FC',
-                       background='#161B22')
-
-        # Modern button styles
-        style.configure('Primary.TButton',
-                       font=('SF Pro Display', 10, 'bold'),
-                       padding=(14, 6),
-                       focuscolor='none')
-
-        style.map('Primary.TButton',
-                 background=[('active', '#2EA043'),
-                           ('!active', '#238636')],
-                 foreground=[('active', '#FFFFFF'),
-                           ('!active', '#FFFFFF')],
-                 relief=[('active', 'flat'),
-                        ('!active', 'flat')])
-
-        style.configure('Success.TButton',
-                       font=('SF Pro Display', 10, 'bold'),
-                       padding=(14, 6),
-                       focuscolor='none')
-
-        style.map('Success.TButton',
-                 background=[('active', '#2EA043'),
-                           ('!active', '#238636')],
-                 foreground=[('active', '#FFFFFF'),
-                           ('!active', '#FFFFFF')],
-                 relief=[('active', 'flat'),
-                        ('!active', 'flat')])
-
-        style.configure('Danger.TButton',
-                       font=('SF Pro Display', 10, 'bold'),
-                       padding=(14, 6),
-                       focuscolor='none')
-
-        style.map('Danger.TButton',
-                 background=[('active', '#F85149'),
-                           ('!active', '#DA3633')],
-                 foreground=[('active', '#FFFFFF'),
-                           ('!active', '#FFFFFF')],
-                 relief=[('active', 'flat'),
-                        ('!active', 'flat')])
-
-        style.configure('Secondary.TButton',
-                       font=('SF Pro Display', 10, 'bold'),
-                       padding=(14, 6),
-                       focuscolor='none')
-
-        style.map('Secondary.TButton',
-                 background=[('active', '#30363D'),
-                           ('!active', '#21262D')],
-                 foreground=[('active', '#F0F6FC'),
-                           ('!active', '#8B949E')],
-                 relief=[('active', 'flat'),
-                        ('!active', 'flat')])
-
-        style.configure('Warning.TButton',
-                       font=('SF Pro Display', 10, 'bold'),
-                       padding=(14, 6),
-                       focuscolor='none')
-
-        style.map('Warning.TButton',
-                 background=[('active', '#FB8500'),
-                           ('!active', '#D29922')],
-                 foreground=[('active', '#000000'),
-                           ('!active', '#000000')],
-                 relief=[('active', 'flat'),
-                        ('!active', 'flat')])
-
-        # Clean Treeview styling
-        style.configure('Clean.Treeview',
-                       background='#161B22',
-                       foreground='#F0F6FC',
-                       fieldbackground='#161B22',
-                       font=('SF Pro Display', 10),
-                       rowheight=30,
-                       borderwidth=0)
-
-        style.configure('Clean.Treeview.Heading',
-                       background='#21262D',
-                       foreground='#F0F6FC',
-                       font=('SF Pro Display', 12, 'bold'),
-                       relief='flat',
-                       borderwidth=0)
-
-        # Prevent header background changes on hover
-        style.map('Clean.Treeview.Heading',
-                 background=[('active', '#21262D'),
-                           ('!active', '#21262D')],
-                 foreground=[('active', '#F0F6FC'),
-                           ('!active', '#F0F6FC')])
-
-        style.map('Clean.Treeview',
-                 background=[('selected', '#2188FF')])
+    def fade_in_window(self):
+        """Removed fade-in animation - window stays fully opaque"""
+        pass  # No fade animation
 
     def show_login_screen(self):
+        """Enhanced login screen with gradient-like effects and animations"""
+        # Clear existing widgets
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        # Clean login background
-        login_frame = tk.Frame(self.root, bg='#0D1117')
-        login_frame.pack(expand=True, fill='both')
+        # Main container with enhanced background
+        main_frame = ctk.CTkFrame(self.root, fg_color=COLORS['bg_primary'])
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        main_frame.grid_columnconfigure(0, weight=1)
+        main_frame.grid_rowconfigure(0, weight=1)
 
-        center_frame = tk.Frame(login_frame, bg='#0D1117')
-        center_frame.pack(expand=True)
+        # Background accent frame for subtle depth
+        bg_accent = ctk.CTkFrame(
+            main_frame,
+            fg_color=COLORS['bg_secondary'],
+            corner_radius=0
+        )
+        bg_accent.place(relx=0.6, rely=0.0, relwidth=0.4, relheight=1.0)
 
-        # Header with icon and title
-        header_frame = tk.Frame(center_frame, bg='#0D1117')
-        header_frame.pack(pady=(0, 40))
+        # Center container
+        center_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        center_frame.grid(row=0, column=0, sticky="")
 
-        title_label = ttk.Label(header_frame, text="🔒 Password Manager", style='Title.TLabel')
-        title_label.pack()
+        # Enhanced login card with subtle shadow effect
+        login_card = ctk.CTkFrame(
+            center_frame,
+            fg_color=COLORS['bg_secondary'],
+            corner_radius=24,  # More rounded corners
+            width=450,         # Slightly wider
+            height=520,        # Taller for better proportions
+            border_width=1,
+            border_color=COLORS['border']
+        )
+        login_card.pack(padx=50, pady=50)
+        login_card.pack_propagate(False)
 
-        subtitle_label = ttk.Label(header_frame, text="Secure • Simple • Private", style='Subtitle.TLabel')
-        subtitle_label.pack(pady=(5, 0))
+        # Subtle accent line instead of glow effect (compatible with CustomTkinter)
+        accent_line = ctk.CTkFrame(
+            login_card,
+            fg_color=COLORS['accent'],
+            corner_radius=20,
+            height=3
+        )
+        accent_line.pack(fill="x", padx=20, pady=(20, 0))
 
-        # Clean login form
-        form_frame = tk.Frame(center_frame, bg='#161B22')
-        form_frame.pack(padx=25, pady=20, ipadx=35, ipady=30)
+        # Enhanced header section
+        header_frame = ctk.CTkFrame(login_card, fg_color="transparent")
+        header_frame.pack(pady=(30, 25))
 
-        tk.Label(form_frame, text="Master Password",
-                font=('SF Pro Display', 12, 'bold'),
-                fg='#F0F6FC', bg='#161B22').pack(pady=(0, 10))
+        # Animated lock icon with accent color
+        lock_label = ctk.CTkLabel(
+            header_frame,
+            text="🔐",
+            font=('SF Pro Display', 56),  # Larger icon
+            text_color=COLORS['accent']
+        )
+        lock_label.pack()
 
-        self.master_password_entry = tk.Entry(form_frame,
-                                             font=('SF Pro Display', 12),
-                                             show='•',
-                                             width=28,
-                                             relief='flat',
-                                             bd=0,
-                                             bg='#0D1117',
-                                             fg='#F0F6FC',
-                                             insertbackground='#238636',
-                                             highlightthickness=1,
-                                             highlightcolor='#238636',
-                                             highlightbackground='#30363D')
-        self.master_password_entry.pack(pady=(0, 20), ipady=8)
+        # Enhanced title with better spacing
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="Password Manager",
+            font=FONTS['title'],
+            text_color=COLORS['text_primary']
+        )
+        title_label.pack(pady=(15, 8))
+
+        # Styled subtitle with better color
+        subtitle_label = ctk.CTkLabel(
+            header_frame,
+            text="Secure • Simple • Private",
+            font=FONTS['body_medium'],
+            text_color=COLORS['text_secondary']
+        )
+        subtitle_label.pack()
+
+        # Enhanced form section
+        form_frame = ctk.CTkFrame(login_card, fg_color="transparent")
+        form_frame.pack(pady=(25, 45), padx=45, fill="x")
+
+        # Password label with better styling
+        password_label = ctk.CTkLabel(
+            form_frame,
+            text="Master Password",
+            font=FONTS['subheading'],
+            text_color=COLORS['text_primary'],
+            anchor="w"
+        )
+        password_label.pack(fill="x", pady=(0, 12))
+
+        # Enhanced password entry with better styling
+        self.master_password_entry = ctk.CTkEntry(
+            form_frame,
+            placeholder_text="Enter your master password",
+            font=FONTS['body_medium'],
+            height=50,  # Taller for better touch targets
+            corner_radius=12,
+            border_width=2,
+            border_color=COLORS['border'],
+            fg_color=COLORS['bg_tertiary'],
+            text_color=COLORS['text_primary'],
+            placeholder_text_color=COLORS['text_muted'],
+            show="•"
+        )
+        self.master_password_entry.pack(fill="x", pady=(0, 30))
         self.master_password_entry.bind('<Return>', lambda e: self.login())
 
-        login_btn = ttk.Button(form_frame,
-                              text="Unlock",
-                              command=self.login,
-                              style='Primary.TButton')
-        login_btn.pack()
+        # Add focus animations
+        self.master_password_entry.bind('<FocusIn>', self.on_entry_focus)
+        self.master_password_entry.bind('<FocusOut>', self.on_entry_blur)
 
+        # Enhanced login button with gradient-like effect
+        login_btn = ctk.CTkButton(
+            form_frame,
+            text="🔓 Unlock Vault",  # Enhanced button text with icon
+            font=FONTS['button'],
+            height=50,
+            corner_radius=12,
+            fg_color=COLORS['accent'],
+            hover_color=COLORS['accent_hover'],
+            command=self.login,
+            cursor="hand2"
+        )
+        login_btn.pack(fill="x")
+
+        # Focus and no fade in (removed fade_in_window call)
         self.master_password_entry.focus()
 
+    def on_entry_focus(self, event):
+        """Add focus animation to entry fields - fixed for CustomTkinter"""
+        # Use CustomTkinter's configure method correctly
+        if hasattr(event.widget, 'configure'):
+            try:
+                event.widget.configure(border_color=COLORS['accent'])
+            except:
+                # Fallback if border_color isn't supported
+                pass
+
+    def on_entry_blur(self, event):
+        """Remove focus animation from entry fields - fixed for CustomTkinter"""
+        # Use CustomTkinter's configure method correctly
+        if hasattr(event.widget, 'configure'):
+            try:
+                event.widget.configure(border_color=COLORS['border'])
+            except:
+                # Fallback if border_color isn't supported
+                pass
+
     def login(self):
+        """Handle login authentication"""
         password = self.master_password_entry.get()
 
         if not password:
@@ -212,249 +261,454 @@ class PasswordManagerGUI:
             messagebox.showerror("Error", f"Login failed: {str(e)}")
 
     def show_main_screen(self):
+        """Enhanced main screen with better visual hierarchy"""
+        # Clear existing widgets
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        # Clean main container with better padding
-        main_frame = tk.Frame(self.root, bg='#0D1117')
-        main_frame.pack(expand=True, fill='both', padx=30, pady=20)
+        # Main container with enhanced styling
+        main_frame = ctk.CTkFrame(self.root, fg_color=COLORS['bg_primary'])
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        main_frame.grid_columnconfigure(0, weight=1)
+        main_frame.grid_rowconfigure(1, weight=1)
 
-        # Modern header with better spacing
-        header_frame = tk.Frame(main_frame, bg='#161B22', relief='flat', bd=0)
-        header_frame.pack(fill='x', pady=(0, 25))
+        # Enhanced header
+        self.create_enhanced_header(main_frame)
 
-        header_content = tk.Frame(header_frame, bg='#161B22')
-        header_content.pack(fill='x', padx=25, pady=18)
+        # Content area with better spacing
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.grid(row=1, column=0, sticky="nsew", pady=10, padx=10)
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_rowconfigure(1, weight=1)
 
-        # Title with better styling
-        title_frame = tk.Frame(header_content, bg='#161B22')
-        title_frame.pack(side='left')
+        # Enhanced search section
+        self.create_enhanced_search_section(content_frame)
 
-        title_label = ttk.Label(title_frame, text="🔐 My Vault",
-                               font=('SF Pro Display', 22, 'bold'),
-                               foreground='#F0F6FC',
-                               background='#161B22')
-        title_label.pack()
-
-        subtitle_label = ttk.Label(title_frame, text="Secure Password Storage",
-                                  font=('SF Pro Display', 11),
-                                  foreground='#7D8590',
-                                  background='#161B22')
-        subtitle_label.pack(anchor='w', pady=(2, 0))
-
-        # Action buttons in header
-        action_header_frame = tk.Frame(header_content, bg='#161B22')
-        action_header_frame.pack(side='right')
-
-        add_btn = ttk.Button(action_header_frame,
-                            text="✚ New Entry",
-                            command=self.show_add_password_dialog,
-                            style='Success.TButton')
-        add_btn.pack(side='right', padx=(8, 0))
-
-        logout_btn = ttk.Button(action_header_frame,
-                               text="Sign Out",
-                               command=self.logout,
-                               style='Danger.TButton')
-        logout_btn.pack(side='right', padx=(8, 0))
-
-        # Main content area with scroll
-        content_container = tk.Frame(main_frame, bg='#0D1117')
-        content_container.pack(expand=True, fill='both')
-
-        # Create scrollable frame
-        self.canvas = tk.Canvas(content_container, bg='#0D1117', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(content_container, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = tk.Frame(self.canvas, bg='#0D1117')
-
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        # Enhanced scrollable cards area
+        self.cards_container = ctk.CTkScrollableFrame(
+            content_frame,
+            fg_color=COLORS['bg_secondary'],
+            corner_radius=20,
+            scrollbar_button_color=COLORS['bg_tertiary'],
+            scrollbar_button_hover_color=COLORS['accent'],
+            border_width=1,
+            border_color=COLORS['border']
         )
-
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=scrollbar.set)
-
-        self.canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Improved mousewheel scrolling for trackpad compatibility
-        def _on_mousewheel(event):
-            # Check if canvas exists and has scrollable content
-            try:
-                if self.canvas.bbox("all"):
-                    # Handle different operating systems and input methods
-                    if hasattr(event, 'delta') and event.delta:
-                        # Windows and macOS trackpad/mouse wheel
-                        delta = int(-1 * (event.delta / 120))
-                    elif hasattr(event, 'num'):
-                        # Linux scroll events
-                        if event.num == 4:
-                            delta = -1
-                        elif event.num == 5:
-                            delta = 1
-                        else:
-                            delta = 0
-                    else:
-                        delta = 0
-
-                    if delta != 0:
-                        self.canvas.yview_scroll(delta, "units")
-                        return "break"  # Prevent event propagation
-            except:
-                pass
-
-        # Make canvas focusable and bind events directly
-        self.canvas.focus_set()
-        self.canvas.bind("<MouseWheel>", _on_mousewheel)
-        self.canvas.bind("<Button-4>", _on_mousewheel)
-        self.canvas.bind("<Button-5>", _on_mousewheel)
-
-        # Bind to content container as well
-        content_container.bind("<MouseWheel>", _on_mousewheel)
-        content_container.bind("<Button-4>", _on_mousewheel)
-        content_container.bind("<Button-5>", _on_mousewheel)
-
-        # Ensure canvas gets focus when mouse enters
-        def on_canvas_enter(event):
-            self.canvas.focus_set()
-
-        self.canvas.bind("<Enter>", on_canvas_enter)
-        content_container.bind("<Enter>", on_canvas_enter)
-
-        # Bind window resize to update layout
-        self.root.bind('<Configure>', self.on_window_resize)
-
-        # Stats and search section
-        stats_frame = tk.Frame(self.scrollable_frame, bg='#161B22', relief='flat', bd=0)
-        stats_frame.pack(fill='x', pady=(0, 20), padx=20)
-
-        stats_content = tk.Frame(stats_frame, bg='#161B22')
-        stats_content.pack(fill='x', padx=20, pady=15)
-
-        # Search bar
-        search_frame = tk.Frame(stats_content, bg='#161B22')
-        search_frame.pack(fill='x', pady=(0, 10))
-
-        tk.Label(search_frame, text="🔍 Search",
-                font=('SF Pro Display', 12, 'bold'),
-                fg='#F0F6FC', bg='#161B22').pack(side='left')
-
-        self.search_var = tk.StringVar()
-        self.search_var.trace_add('write', self.filter_passwords)
-
-        # Make search entry responsive to window width
-        self.search_entry = tk.Entry(search_frame,
-                               textvariable=self.search_var,
-                               font=('SF Pro Display', 11),
-                               relief='flat',
-                               bd=0,
-                               bg='#0D1117',
-                               fg='#F0F6FC',
-                               insertbackground='#238636',
-                               highlightthickness=1,
-                               highlightcolor='#238636',
-                               highlightbackground='#30363D')
-        self.search_entry.pack(side='right', fill='x', expand=True, ipady=6, padx=(10, 0))
-
-        # Stats display
-        self.stats_label = tk.Label(stats_content,
-                                   font=('SF Pro Display', 10),
-                                   fg='#7D8590', bg='#161B22')
-        self.stats_label.pack(anchor='w')
-
-        # Password cards container
-        self.cards_frame = tk.Frame(self.scrollable_frame, bg='#0D1117')
-        self.cards_frame.pack(fill='both', expand=True, padx=20)
-
-        # Store current passwords for layout updates
-        self.current_passwords = []
+        self.cards_container.grid(row=1, column=0, sticky="nsew", pady=(20, 0))
+        self.cards_container.grid_columnconfigure((0, 1), weight=1, uniform="cards")
 
         self.refresh_passwords()
 
-    def calculate_columns(self):
-        """Always return 2 columns as requested"""
-        return 2
+    def create_enhanced_header(self, parent):
+        """Enhanced header with gradient-like styling and better button design"""
+        header_frame = ctk.CTkFrame(
+            parent,
+            fg_color=COLORS['bg_secondary'],
+            corner_radius=18,
+            height=120,  # Taller header
+            border_width=1,
+            border_color=COLORS['border']
+        )
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 10))
+        header_frame.grid_columnconfigure(0, weight=1)
+        header_frame.pack_propagate(False)
 
-    def get_card_width(self):
-        """Calculate uniform card width for exactly 2 columns"""
-        if not hasattr(self, 'canvas'):
-            # Use root window width for initial calculation
-            canvas_width = self.root.winfo_width() - 70  # Account for padding and scrollbar
-            if canvas_width < 100:
-                return 400
-        else:
-            canvas_width = self.canvas.winfo_width()
-            if canvas_width < 100:  # Canvas not yet initialized, use root width
-                canvas_width = self.root.winfo_width() - 70
+        # Accent line at top
+        accent_line = ctk.CTkFrame(
+            header_frame,
+            fg_color=COLORS['accent'],
+            corner_radius=0,
+            height=3
+        )
+        accent_line.pack(fill="x", padx=10, pady=(15, 0))
 
-        # Fixed 2 columns only
-        columns = 2
-        total_padding = 60  # 30px padding on each side
-        card_spacing = 20   # 10px spacing between cards
+        # Header content
+        header_content = ctk.CTkFrame(header_frame, fg_color="transparent")
+        header_content.pack(fill="both", expand=True, padx=30, pady=20)
 
-        # Calculate available width for cards
-        available_width = canvas_width - total_padding
-        card_width = (available_width - card_spacing) // columns
+        # Enhanced left side - Title with better hierarchy
+        title_frame = ctk.CTkFrame(header_content, fg_color="transparent")
+        title_frame.pack(side="left", fill="y")
 
-        # Ensure minimum width
-        return max(350, card_width)
+        title_label = ctk.CTkLabel(
+            title_frame,
+            text="🔐 My Vault",
+            font=FONTS['heading'],
+            text_color=COLORS['text_primary']
+        )
+        title_label.pack(anchor="w")
 
-    def on_window_resize(self, event):
-        """Handle window resize events to update card layout and search bar"""
-        # Only respond to main window resize events
-        if event.widget == self.root:
-            # Use after_idle to avoid too many rapid updates during resize
-            self.root.after_idle(self.update_layout_on_resize)
+        subtitle_label = ctk.CTkLabel(
+            title_frame,
+            text="Secure Password Storage",
+            font=FONTS['small'],
+            text_color=COLORS['text_secondary']
+        )
+        subtitle_label.pack(anchor="w", pady=(2, 0))
 
-    def update_layout_on_resize(self):
-        """Update both card layout and search bar on window resize"""
-        # Update search bar width based on new window size
-        if hasattr(self, 'search_entry'):
-            # The search entry will automatically adjust due to fill='x', expand=True
-            pass
+        # Enhanced right side - Action buttons with better styling
+        actions_frame = ctk.CTkFrame(header_content, fg_color="transparent")
+        actions_frame.pack(side="right", fill="y")
 
-        # Update card layout
-        if hasattr(self, 'current_passwords') and self.current_passwords:
-            # Recalculate and redisplay cards
-            self.display_password_cards(self.current_passwords)
+        # Enhanced New Entry button
+        new_btn = ctk.CTkButton(
+            actions_frame,
+            text="➕ New Entry",  # Better icon
+            font=FONTS['button'],
+            height=40,
+            width=120,
+            corner_radius=10,
+            fg_color=COLORS['success'],
+            hover_color=COLORS['success_hover'],
+            command=self.show_add_password_dialog,
+            cursor="hand2"
+        )
+        new_btn.pack(side="right", padx=(12, 0))
 
-    def update_card_layout(self):
-        """Update the card layout based on current window size"""
-        if hasattr(self, 'current_passwords') and self.current_passwords:
-            # Recalculate and redisplay cards
-            self.display_password_cards(self.current_passwords)
+        # Enhanced Sign Out button
+        signout_btn = ctk.CTkButton(
+            actions_frame,
+            text="✌🏽 Sign Out",  # Better icon
+            font=FONTS['button'],
+            height=40,
+            width=100,
+            corner_radius=10,
+            fg_color=COLORS['danger'],
+            hover_color=COLORS['danger_hover'],
+            command=self.logout,
+            cursor="hand2"
+        )
+        signout_btn.pack(side="right")
+
+    def create_enhanced_search_section(self, parent):
+        """Enhanced search section with better visual appeal"""
+        search_frame = ctk.CTkFrame(
+            parent,
+            fg_color=COLORS['bg_secondary'],
+            corner_radius=18,
+            height=100,  # Slightly taller
+            border_width=1,
+            border_color=COLORS['border']
+        )
+        search_frame.grid(row=0, column=0, sticky="ew")
+        search_frame.pack_propagate(False)
+
+        # Search content with better padding
+        search_content = ctk.CTkFrame(search_frame, fg_color="transparent")
+        search_content.pack(fill="both", expand=True, padx=30, pady=10)
+
+        # Enhanced search label
+        search_label = ctk.CTkLabel(
+            search_content,
+            text="🔍 Search Passwords",
+            font=FONTS['subheading'],
+            text_color=COLORS['text_primary']
+        )
+        search_label.pack(anchor="w", pady=(0, 10))
+
+        # Enhanced search entry
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add('write', self.filter_passwords)
+
+        self.search_entry = ctk.CTkEntry(
+            search_content,
+            textvariable=self.search_var,
+            placeholder_text="Type to search by website or username...",
+            font=FONTS['body_medium'],
+            height=40,
+            corner_radius=10,
+            border_width=2,
+            border_color=COLORS['border'],
+            fg_color=COLORS['bg_tertiary'],
+            text_color=COLORS['text_primary'],
+            placeholder_text_color=COLORS['text_muted']
+        )
+        self.search_entry.pack(fill="x", pady=(0, 10))
+        self.search_entry.bind('<FocusIn>', self.on_entry_focus)
+        self.search_entry.bind('<FocusOut>', self.on_entry_blur)
+
+        # Enhanced stats label
+        self.stats_label = ctk.CTkLabel(
+            search_content,
+            text="Total: 0 passwords",
+            font=FONTS['small'],
+            text_color=COLORS['text_secondary']
+        )
+        self.stats_label.pack(anchor="w")
+
+    def display_password_cards(self, passwords):
+        """Display password cards in a 2-column grid"""
+        # Clear existing cards
+        for widget in self.cards_container.winfo_children():
+            widget.destroy()
+
+        self.current_passwords = passwords
+
+        if not passwords:
+            self.show_empty_state()
+            return
+
+        # Create cards in 2-column grid
+        for i, pwd in enumerate(passwords):
+            row = i // 2
+            col = i % 2
+
+            self.create_password_card(pwd, row, col)
+
+    def create_password_card(self, password_data, row, col):
+        """Enhanced password card with better visual hierarchy and hover effects"""
+        card = ctk.CTkFrame(
+            self.cards_container,
+            fg_color=COLORS['bg_tertiary'],
+            corner_radius=16,  # More rounded
+            height=210,        # Taller cards
+            border_width=1,
+            border_color=COLORS['border']
+        )
+        card.grid(row=row, column=col, padx=12, pady=12, sticky="ew")
+        card.pack_propagate(False)
+
+        # Subtle top accent line
+        accent_line = ctk.CTkFrame(
+            card,
+            fg_color=COLORS['accent'],
+            corner_radius=0,
+            height=2
+        )
+        accent_line.pack(fill="x", padx=15, pady=(15, 0))
+
+        # Card content with better padding
+        content_frame = ctk.CTkFrame(card, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=25, pady=15)
+
+        # Enhanced header with website and actions
+        header_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 15))
+
+        # Enhanced website name with favicon-like styling
+        website_text = password_data['website']
+        if len(website_text) > 22:
+            website_text = website_text[:19] + "..."
+
+        website_label = ctk.CTkLabel(
+            header_frame,
+            text=f"🌐 {website_text}",
+            font=FONTS['subheading'],
+            text_color=COLORS['text_primary'],
+            anchor="w"
+        )
+        website_label.pack(side="left", fill="x", expand=True)
+
+        # Enhanced action buttons with better spacing
+        actions_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        actions_frame.pack(side="right")
+
+        # Copy password button with tooltip-like styling
+        copy_btn = ctk.CTkButton(
+            actions_frame,
+            text="🔑",
+            width=32,
+            height=32,
+            corner_radius=8,
+            font=('SF Pro Display', 16),
+            fg_color=COLORS['bg_quaternary'],
+            hover_color=COLORS['accent'],
+            command=lambda: self.copy_to_clipboard(password_data['password'], "Password"),
+            cursor="hand2"
+        )
+        copy_btn.pack(side="left", padx=(0, 6))
+
+        # Copy username button
+        copy_user_btn = ctk.CTkButton(
+            actions_frame,
+            text="👤",
+            width=32,
+            height=32,
+            corner_radius=8,
+            font=('SF Pro Display', 16),
+            fg_color=COLORS['bg_quaternary'],
+            hover_color=COLORS['accent'],
+            command=lambda: self.copy_to_clipboard(password_data['username'], "Username"),
+            cursor="hand2"
+        )
+        copy_user_btn.pack(side="left", padx=(0, 6))
+
+        # More options button
+        more_btn = ctk.CTkButton(
+            actions_frame,
+            text="⋯",
+            width=32,
+            height=32,
+            corner_radius=8,
+            font=('SF Pro Display', 18, 'bold'),
+            fg_color=COLORS['bg_quaternary'],
+            hover_color=COLORS['accent'],
+            command=lambda: self.show_card_menu(password_data, more_btn),
+            cursor="hand2"
+        )
+        more_btn.pack(side="left")
+
+        # Enhanced username section
+        username_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        username_frame.pack(fill="x")
+
+        username_title = ctk.CTkLabel(
+            username_frame,
+            text="Username:",
+            font=FONTS['body_medium'],
+            text_color=COLORS['text_muted']
+        )
+        username_title.pack(anchor="w")
+
+        username_text = password_data['username']
+        if len(username_text) > 32:
+            username_text = username_text[:29] + "..."
+
+        username_value = ctk.CTkLabel(
+            username_frame,
+            text=username_text,
+            font=FONTS['body_medium'],
+            text_color=COLORS['text_primary']
+        )
+        username_value.pack(anchor="w")
+
+        # Enhanced password section
+        password_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        password_frame.pack(fill="x")
+
+        password_title = ctk.CTkLabel(
+            password_frame,
+            text="Password:",
+            font=FONTS['body_medium'],
+            text_color=COLORS['text_muted']
+        )
+        password_title.pack(anchor="w")
+
+        # Styled password dots with monospace font
+        password_dots = ctk.CTkLabel(
+            password_frame,
+            text="●●●●●●●●●●●●",  # Different bullet style
+            font=FONTS['monospace'],
+            text_color=COLORS['text_secondary']
+        )
+        password_dots.pack(anchor="w", pady=(4, 7))
+
+    def show_empty_state(self):
+        """Enhanced empty state with better visual appeal"""
+        empty_frame = ctk.CTkFrame(self.cards_container, fg_color="transparent")
+        empty_frame.pack(expand=True, fill="both", pady=80)
+
+        # Enhanced empty state card
+        empty_card = ctk.CTkFrame(
+            empty_frame,
+            fg_color=COLORS['bg_tertiary'],
+            corner_radius=20,
+            border_width=2,
+            border_color=COLORS['border']
+        )
+        empty_card.pack(padx=100, pady=40)
+
+        # Large icon with better styling
+        empty_icon = ctk.CTkLabel(
+            empty_card,
+            text="🔒",
+            font=('SF Pro Display', 72),
+            text_color=COLORS['text_muted']
+        )
+        empty_icon.pack(pady=(40, 10))
+
+        # Enhanced empty text
+        empty_text = ctk.CTkLabel(
+            empty_card,
+            text="No passwords found" if self.search_var.get() else "Your vault is empty",
+            font=FONTS['heading'],
+            text_color=COLORS['text_secondary']
+        )
+        empty_text.pack(padx=30, pady=(0, 30)) if self.search_var.get() else empty_text.pack(padx=30, pady=(0, 10))
+
+        if not self.search_var.get():
+            empty_subtitle = ctk.CTkLabel(
+                empty_card,
+                text="Click '➕ New Entry' to add your first password",
+                font=FONTS['body_medium'],
+                text_color=COLORS['text_muted']
+            )
+            empty_subtitle.pack(padx=15, pady=(0, 40))
+
+    def show_card_menu(self, password_data, button):
+        """Show context menu for password card"""
+        # Create popup menu
+        menu = tk.Menu(self.root, tearoff=0,
+                      bg=COLORS['bg_tertiary'], fg=COLORS['text_primary'],
+                      activebackground=COLORS['accent'], activeforeground='white',
+                      font=FONTS['body'], borderwidth=0)
+
+        menu.add_command(label="👁 View Details",
+                        command=lambda: self.show_password_details(password_data))
+        menu.add_command(label="✏️ Edit Entry",
+                        command=lambda: self.show_edit_password_dialog(password_data))
+        menu.add_separator()
+        menu.add_command(label="📋 Copy Password",
+                        command=lambda: self.copy_to_clipboard(password_data['password'], "Password"))
+        menu.add_command(label="👤 Copy Username",
+                        command=lambda: self.copy_to_clipboard(password_data['username'], "Username"))
+        menu.add_command(label="🌐 Copy Website",
+                        command=lambda: self.copy_to_clipboard(password_data['website'], "Website"))
+        menu.add_separator()
+        menu.add_command(label="🗑 Delete Entry",
+                        command=lambda: self.delete_password_card(password_data))
+
+        # Show menu at button position
+        x = button.winfo_rootx()
+        y = button.winfo_rooty() + button.winfo_height()
+        menu.post(x, y)
+
+    def show_password_details(self, password_data):
+        """Show password details dialog"""
+        dialog = PasswordDetailsDialog(self.root, password_data, self.copy_to_clipboard)
 
     def show_add_password_dialog(self):
+        """Show add password dialog"""
         dialog = AddPasswordDialog(self.root, self.save_new_password)
 
+    def show_edit_password_dialog(self, password_data):
+        """Show edit password dialog"""
+        dialog = EditPasswordDialog(self.root, self.update_password_entry, password_data)
+
     def save_new_password(self, website, username, password):
+        """Save new password to database"""
         try:
             save_password(website, username, password, self.key, self.master_password)
-            messagebox.showinfo("Success", "Password saved successfully!", parent=self.root)
+            messagebox.showinfo("Success", "Password saved successfully!")
             self.refresh_passwords()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save password: {str(e)}", parent=self.root)
+            messagebox.showerror("Error", f"Failed to save password: {str(e)}")
 
     def update_password_entry(self, old_data, new_website, new_username, new_password):
-        """Update an existing password entry"""
+        """Update existing password entry"""
         try:
             update_password(old_data['id'], new_website, new_username, new_password, self.key, self.master_password)
-            messagebox.showinfo("Success", "Password updated successfully!", parent=self.root)
+            messagebox.showinfo("Success", "Password updated successfully!")
             self.refresh_passwords()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to update password: {str(e)}", parent=self.root)
+            messagebox.showerror("Error", f"Failed to update password: {str(e)}")
+
+    def delete_password_card(self, password_data):
+        """Delete password with confirmation"""
+        if messagebox.askyesno("Confirm Delete",
+                             f"Are you sure you want to delete the password for {password_data['website']}?",
+                             icon='warning'):
+            try:
+                delete_password(password_data['id'], self.master_password)
+                messagebox.showinfo("Success", "Password deleted successfully!")
+                self.refresh_passwords()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete password: {str(e)}")
 
     def filter_passwords(self, var_name, index, mode):
         """Filter passwords based on search term"""
         search_term = self.search_var.get().lower()
 
-        # Clear current cards
-        for widget in self.cards_frame.winfo_children():
-            widget.destroy()
-
-        # Filter and display passwords
-        filtered_passwords = []
         try:
             passwords = get_passwords(self.key, self.master_password)
             if search_term:
@@ -468,351 +722,17 @@ class PasswordManagerGUI:
             return
 
         self.display_password_cards(filtered_passwords)
-        self.update_stats(len(filtered_passwords), len(passwords) if not search_term else len(passwords))
-
-    def display_password_cards(self, passwords):
-        """Display passwords as modern cards with uniform sizing - EXACTLY 2 COLUMNS"""
-        # Store current passwords for layout updates
-        self.current_passwords = passwords
-
-        if not passwords:
-            # Empty state
-            empty_frame = tk.Frame(self.cards_frame, bg='#0D1117')
-            empty_frame.pack(expand=True, fill='both', pady=50)
-
-            empty_icon = tk.Label(empty_frame, text="🔒",
-                                 font=('SF Pro Display', 48),
-                                 fg='#30363D', bg='#0D1117')
-            empty_icon.pack(pady=(0, 10))
-
-            empty_text = tk.Label(empty_frame,
-                                 text="No passwords found" if self.search_var.get() else "No passwords saved yet",
-                                 font=('SF Pro Display', 16),
-                                 fg='#7D8590', bg='#0D1117')
-            empty_text.pack()
-
-            if not self.search_var.get():
-                empty_subtitle = tk.Label(empty_frame,
-                                         text="Click 'New Entry' to add your first password",
-                                         font=('SF Pro Display', 12),
-                                         fg='#7D8590', bg='#0D1117')
-                empty_subtitle.pack(pady=(10, 0))
-            return
-
-        # Clear existing cards
-        for widget in self.cards_frame.winfo_children():
-            widget.destroy()
-
-        # Get current window dimensions for proper sizing
-        columns = 2
-        card_width = self.get_card_width()
-        card_height = 200
-
-        # Create grid of cards with IDENTICAL sizing for all cards
-        for i, pwd in enumerate(passwords):
-            row = i // columns
-            col = i % columns
-
-            # Card container - IDENTICAL SIZE FOR ALL CARDS
-            card_frame = tk.Frame(self.cards_frame, bg='#161B22', relief='flat', bd=0,
-                                 width=card_width, height=card_height)
-            card_frame.grid(row=row, column=col, padx=10, pady=10, sticky='')
-            card_frame.grid_propagate(False)  # CRITICAL: Prevent size changes
-            card_frame.pack_propagate(False)  # CRITICAL: Prevent size changes
-
-            # Configure grid for exactly 2 uniform columns
-            self.cards_frame.grid_columnconfigure(col, weight=1, uniform="uniform_card")
-            self.cards_frame.grid_rowconfigure(row, weight=0)
-
-            # Card content with IDENTICAL padding for all cards
-            card_content = tk.Frame(card_frame, bg='#161B22')
-            card_content.pack(fill='both', expand=True, padx=20, pady=18)
-
-            # Website header - UNIFORM height and layout
-            header_frame = tk.Frame(card_content, bg='#161B22', height=35)
-            header_frame.pack(fill='x', pady=(0, 15))
-            header_frame.pack_propagate(False)  # Fixed header height
-
-            # Website name section
-            website_frame = tk.Frame(header_frame, bg='#161B22')
-            website_frame.pack(side='left', fill='x', expand=True)
-
-            # UNIFORM text truncation based on actual card width
-            website_text = pwd['website']
-            # Adjust character limit based on card width for better responsiveness
-            max_chars = max(15, min(30, card_width // 20))
-            if len(website_text) > max_chars:
-                website_text = website_text[:max_chars-3] + "..."
-
-            # UNIFORM font size for all cards
-            website_label = tk.Label(website_frame, text=f"🌐 {website_text}",
-                                   font=('SF Pro Display', 13, 'bold'),
-                                   fg='#F0F6FC', bg='#161B22',
-                                   anchor='w')
-            website_label.pack(fill='x')
-
-            # Quick actions with IDENTICAL sizing
-            actions_frame = tk.Frame(header_frame, bg='#161B22')
-            actions_frame.pack(side='right')
-
-            # Use ttk.Button with custom style and emoji/icon as text
-            copy_pass_btn = ttk.Button(
-                actions_frame,
-                text="🔑",
-                width=3,
-                style='Secondary.TButton',
-                command=lambda p=pwd['password']: self.copy_to_clipboard(p, "Password")
-            )
-            copy_pass_btn.pack(side='left', padx=(0, 6))
-
-            copy_user_btn = ttk.Button(
-                actions_frame,
-                text="👤",
-                width=3,
-                style='Secondary.TButton',
-                command=lambda u=pwd['username']: self.copy_to_clipboard(u, "Username")
-            )
-            copy_user_btn.pack(side='left', padx=(0, 6))
-
-            more_btn = ttk.Button(
-                actions_frame,
-                text="⋯",
-                width=3,
-                style='Secondary.TButton',
-                command=lambda p=pwd: self.show_card_menu(p)
-            )
-            more_btn.pack(side='left')
-
-            # Username section - FIXED height for all cards
-            username_frame = tk.Frame(card_content, bg='#161B22', height=45)
-            username_frame.pack(fill='x', pady=(0, 10))
-            username_frame.pack_propagate(False)  # Fixed section height
-
-            tk.Label(username_frame, text="Username:",
-                    font=('SF Pro Display', 9, 'bold'),
-                    fg='#7D8590', bg='#161B22').pack(anchor='w')
-
-            # UNIFORM username truncation based on card width
-            username_text = pwd['username']
-            max_username_chars = max(20, min(35, card_width // 15))
-            if len(username_text) > max_username_chars:
-                username_text = username_text[:max_username_chars-3] + "..."
-
-            username_display = tk.Label(username_frame, text=username_text,
-                                       font=('SF Pro Display', 10),
-                                       fg='#F0F6FC', bg='#161B22',
-                                       anchor='w')
-            username_display.pack(fill='x', pady=(3, 0))
-
-            # Password section - FIXED height for all cards
-            password_frame = tk.Frame(card_content, bg='#161B22', height=45)
-            password_frame.pack(fill='x')
-            password_frame.pack_propagate(False)  # Fixed section height
-
-            tk.Label(password_frame, text="Password:",
-                    font=('SF Pro Display', 9, 'bold'),
-                    fg='#7D8590', bg='#161B22').pack(anchor='w')
-
-            # UNIFORM password dots for all cards
-            password_dots = 12  # Fixed number of dots for all cards
-            password_display = tk.Label(password_frame, text='•' * password_dots,
-                                       font=('SF Pro Display', 10),
-                                       fg='#F0F6FC', bg='#161B22',
-                                       anchor='w')
-            password_display.pack(fill='x', pady=(3, 0))
-
-        # IMPORTANT: Only configure exactly 2 columns
-        self.cards_frame.grid_columnconfigure(0, weight=1, uniform="uniform_card")
-        self.cards_frame.grid_columnconfigure(1, weight=1, uniform="uniform_card")
-
-        # Clear any additional columns to prevent layout issues
-        for col in range(2, 10):
-            self.cards_frame.grid_columnconfigure(col, weight=0)
-
-        # Update canvas scroll region after creating cards
-        self.root.after_idle(lambda: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-
-        # Rebind mousewheel events to new card elements
-        if hasattr(self, 'canvas'):
-            def _on_mousewheel(event):
-                try:
-                    if self.canvas.bbox("all"):
-                        if hasattr(event, 'delta') and event.delta:
-                            delta = int(-1 * (event.delta / 120))
-                        elif hasattr(event, 'num'):
-                            if event.num == 4:
-                                delta = -1
-                            elif event.num == 5:
-                                delta = 1
-                            else:
-                                delta = 0
-                        else:
-                            delta = 0
-
-                        if delta != 0:
-                            self.canvas.yview_scroll(delta, "units")
-                            return "break"
-                except:
-                    pass
-
-            # Bind mousewheel to all card widgets and their children
-            def bind_to_widget_tree(widget):
-                widget.bind("<MouseWheel>", _on_mousewheel)
-                widget.bind("<Button-4>", _on_mousewheel)
-                widget.bind("<Button-5>", _on_mousewheel)
-
-                # Bind to all children recursively
-                for child in widget.winfo_children():
-                    bind_to_widget_tree(child)
-
-            # Apply to cards frame and all its contents
-            bind_to_widget_tree(self.cards_frame)
-
-            # Also bind to scrollable frame
-            bind_to_widget_tree(self.scrollable_frame)
-
-    def show_card_menu(self, password_data):
-        """Show context menu for a password card"""
-        menu = tk.Menu(self.root, tearoff=0,
-                      bg='#21262D', fg='#F0F6FC',
-                      activebackground='#238636', activeforeground='#FFFFFF',
-                      font=('SF Pro Display', 11),
-                      borderwidth=0)
-
-        menu.add_command(label="👁 View Details",
-                        command=lambda: self.show_password_details(password_data))
-        menu.add_command(label="✏️ Edit Entry",
-                        command=lambda: EditPasswordDialog(self.root, self.update_password_entry, password_data))
-        menu.add_separator()
-        menu.add_command(label="📋 Copy Password",
-                        command=lambda: self.copy_to_clipboard(password_data['password'], "Password"))
-        menu.add_command(label="👤 Copy Username",
-                        command=lambda: self.copy_to_clipboard(password_data['username'], "Username"))
-        menu.add_command(label="🌐 Copy Website",
-                        command=lambda: self.copy_to_clipboard(password_data['website'], "Website"))
-        menu.add_separator()
-        menu.add_command(label="🗑 Delete Entry",
-                        command=lambda: self.delete_password_card(password_data))
-
-        # Get mouse position and show menu
-        x, y = self.root.winfo_pointerxy()
-        menu.post(x, y)
-
-    def show_password_details(self, password_data):
-        """Show detailed view of password entry"""
-        self.create_password_options_dialog_from_data(password_data)
-
-    def create_password_options_dialog_from_data(self, data):
-        """Create dialog with password options from card data"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Password Details")
-        dialog.geometry("400x350")
-        dialog.configure(bg='#0D1117')
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        dialog.grab_set()
-
-        # Center dialog
-        dialog.geometry("+%d+%d" % (self.root.winfo_rootx() + 250, self.root.winfo_rooty() + 200))
-
-        # Clean content
-        main_frame = tk.Frame(dialog, bg='#161B22')
-        main_frame.pack(expand=True, fill='both', padx=15, pady=15)
-
-        content_frame = tk.Frame(main_frame, bg='#161B22')
-        content_frame.pack(expand=True, fill='both', padx=15, pady=15)
-
-        # Website title
-        tk.Label(content_frame, text=f"🌐 {data['website']}",
-                font=('SF Pro Display', 14, 'bold'),
-                fg='#F0F6FC', bg='#161B22').pack(pady=(0, 15))
-
-        # Username section
-        username_frame = tk.Frame(content_frame, bg='#161B22')
-        username_frame.pack(fill='x', pady=(0, 12))
-
-        tk.Label(username_frame, text="Username",
-                font=('SF Pro Display', 10, 'bold'),
-                fg='#7D8590', bg='#161B22').pack(anchor='w')
-
-        tk.Label(username_frame, text=data['username'],
-                font=('SF Pro Display', 11),
-                fg='#F0F6FC', bg='#161B22').pack(anchor='w', pady=(2, 0))
-
-        # Password section
-        password_frame = tk.Frame(content_frame, bg='#161B22')
-        password_frame.pack(fill='x', pady=(0, 20))
-
-        tk.Label(password_frame, text="Password",
-                font=('SF Pro Display', 10, 'bold'),
-                fg='#7D8590', bg='#161B22').pack(anchor='w')
-
-        # Password display with improved styling
-        self.password_var = tk.StringVar(value='•' * 8)
-        self.password_shown = False
-
-        password_display_frame = tk.Frame(password_frame, bg='#21262D', relief='flat', bd=1)
-        password_display_frame.pack(fill='x', pady=(2, 0))
-
-        self.password_display_label = tk.Label(password_display_frame,
-                                              textvariable=self.password_var,
-                                              font=('SF Pro Display', 11),
-                                              fg='#F0F6FC', bg='#21262D',
-                                              anchor='w')
-        self.password_display_label.pack(side='left', padx=10, pady=8, fill='x', expand=True)
-
-        # Improved toggle button
-        toggle_btn = tk.Button(password_display_frame,
-                               text="👁",
-                               font=('SF Pro Display', 12),
-                               bg='#6E7681', fg='#F0F6FC',
-                               activebackground='#8B949E',
-                               activeforeground='#F0F6FC',
-                               relief='flat', bd=0,
-                               width=3, height=1,
-                               cursor='hand2',
-                               command=lambda: self.toggle_password_visibility(data['password']))
-        toggle_btn.pack(side='right', padx=5, pady=2)
-
-        # Action buttons
-        button_frame = tk.Frame(content_frame, bg='#161B22')
-        button_frame.pack(fill='x', pady=(20, 0))
-
-        if CLIPBOARD_AVAILABLE:
-            copy_btn = ttk.Button(button_frame,
-                                 text="📋 Copy Password",
-                                 command=lambda: self.copy_password_from_dialog(data['password'], dialog),
-                                 style='Primary.TButton')
-            copy_btn.pack(side='left', padx=(0, 8))
-
-        close_btn = ttk.Button(button_frame,
-                              text="Close",
-                              command=dialog.destroy,
-                              style='Secondary.TButton')
-        close_btn.pack(side='right')
-
-    def delete_password_card(self, password_data):
-        """Delete a password from card interface"""
-        if messagebox.askyesno("Confirm Delete",
-                             f"Are you sure you want to delete the password for {password_data['website']}?",
-                             icon='warning'):
-            try:
-                delete_password(password_data['id'], self.master_password)
-                messagebox.showinfo("Success", "Password deleted successfully!")
-                self.refresh_passwords()
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to delete password: {str(e)}")
+        self.update_stats(len(filtered_passwords), len(passwords))
 
     def update_stats(self, displayed_count, total_count):
-        """Update the stats display"""
-        if hasattr(self, 'stats_label'):
-            if self.search_var.get():
-                self.stats_label.config(text=f"Showing {displayed_count} of {total_count} passwords")
-            else:
-                self.stats_label.config(text=f"Total: {total_count} passwords")
+        """Update stats display"""
+        if self.search_var.get():
+            self.stats_label.configure(text=f"Showing {displayed_count} of {total_count} passwords")
+        else:
+            self.stats_label.configure(text=f"Total: {total_count} passwords")
 
     def refresh_passwords(self):
-        # Clear search
+        """Refresh password display"""
         if hasattr(self, 'search_var'):
             self.search_var.set('')
 
@@ -824,120 +744,300 @@ class PasswordManagerGUI:
             messagebox.showerror("Error", f"Failed to load passwords: {str(e)}")
 
     def copy_to_clipboard(self, text, label):
-        """Copy text to clipboard and show confirmation"""
+        """Enhanced clipboard copy with better notification"""
         if CLIPBOARD_AVAILABLE:
             pyperclip.copy(text)
-            messagebox.showinfo("✓ Copied", f"{label} copied to clipboard!", parent=self.root)
+            # Create a custom notification instead of basic messagebox
+            self.show_toast_notification(f"✓ {label} copied to clipboard!")
         else:
-            messagebox.showinfo(f"📋 {label}", f"{label}: {text}", parent=self.root)
+            messagebox.showinfo(f"📋 {label}", f"{label}: {text}")
 
-    def toggle_password_visibility(self, password):
-        """Toggle between showing and hiding password"""
-        if self.password_shown:
-            self.password_var.set('•' * len(password))
-            self.password_shown = False
-        else:
-            self.password_var.set(password)
-            self.password_shown = True
+    def show_toast_notification(self, message):
+        """Show a modern toast notification"""
+        toast = ctk.CTkToplevel(self.root)
+        toast.geometry("300x60")
+        toast.overrideredirect(True)
+        toast.attributes('-topmost', True)
 
-    def copy_password_from_dialog(self, password, dialog):
-        """Copy password and close dialog"""
-        if CLIPBOARD_AVAILABLE:
-            pyperclip.copy(password)
-            messagebox.showinfo("✓ Copied", "Password copied to clipboard!", parent=dialog)
-            dialog.destroy()
+        # Position in bottom right
+        x = self.root.winfo_x() + self.root.winfo_width() - 320
+        y = self.root.winfo_y() + self.root.winfo_height() - 100
+        toast.geometry(f"+{x}+{y}")
+
+        # Toast content
+        toast_frame = ctk.CTkFrame(
+            toast,
+            fg_color=COLORS['success'],
+            corner_radius=12
+        )
+        toast_frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+        toast_label = ctk.CTkLabel(
+            toast_frame,
+            text=message,
+            font=FONTS['body_medium'],
+            text_color="white"
+        )
+        toast_label.pack(expand=True)
+
+        # Auto-dismiss after 2 seconds
+        toast.after(2000, toast.destroy)
 
     def logout(self):
+        """Logout and return to login screen"""
         self.master_password = None
         self.key = None
         self.show_login_screen()
 
     def run(self):
+        """Start the application"""
         self.root.mainloop()
+
+
+class PasswordDetailsDialog:
+    def __init__(self, parent, password_data, copy_callback):
+        self.password_data = password_data
+        self.copy_callback = copy_callback
+        self.password_shown = False
+
+        # Create dialog
+        self.dialog = ctk.CTkToplevel(parent)
+        self.dialog.title("Password Details")
+        self.dialog.geometry("500x450")  # Slightly larger for bigger text
+        self.dialog.resizable(False, False)
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        # Center dialog
+        self.dialog.geometry(f"+{parent.winfo_rootx() + 200}+{parent.winfo_rooty() + 150}")
+
+        self.create_dialog()
+
+    def create_dialog(self):
+        # Main container
+        main_frame = ctk.CTkFrame(self.dialog, fg_color=COLORS['bg_secondary'], corner_radius=20)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Content frame
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=25, pady=25)
+
+        # Title
+        title_label = ctk.CTkLabel(
+            content_frame,
+            text=f"🌐 {self.password_data['website']}",
+            font=FONTS['heading'],
+            text_color=COLORS['text_primary']
+        )
+        title_label.pack(pady=(0, 25))
+
+        # Username section
+        username_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        username_frame.pack(fill="x", pady=(0, 20))
+
+        username_label = ctk.CTkLabel(
+            username_frame,
+            text="Username",
+            font=FONTS['subheading'],
+            text_color=COLORS['text_secondary']
+        )
+        username_label.pack(anchor="w")
+
+        username_value = ctk.CTkLabel(
+            username_frame,
+            text=self.password_data['username'],
+            font=FONTS['body'],
+            text_color=COLORS['text_primary']
+        )
+        username_value.pack(anchor="w", pady=(5, 0))
+
+        # Password section
+        password_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        password_frame.pack(fill="x", pady=(0, 30))
+
+        password_label = ctk.CTkLabel(
+            password_frame,
+            text="Password",
+            font=FONTS['subheading'],
+            text_color=COLORS['text_secondary']
+        )
+        password_label.pack(anchor="w")
+
+        # Password display frame
+        password_display_frame = ctk.CTkFrame(password_frame, fg_color=COLORS['bg_tertiary'], corner_radius=8)
+        password_display_frame.pack(fill="x", pady=(5, 0))
+
+        self.password_var = tk.StringVar(value="•" * 12)
+        self.password_display = ctk.CTkLabel(
+            password_display_frame,
+            textvariable=self.password_var,
+            font=FONTS['body'],
+            text_color=COLORS['text_primary']
+        )
+        self.password_display.pack(side="left", padx=15, pady=10, fill="x", expand=True)
+
+        # Toggle button
+        self.toggle_btn = ctk.CTkButton(
+            password_display_frame,
+            text="👁",
+            width=40,
+            height=30,
+            corner_radius=6,
+            fg_color=COLORS['bg_secondary'],
+            hover_color=COLORS['border'],
+            command=self.toggle_password_visibility
+        )
+        self.toggle_btn.pack(side="right", padx=10, pady=5)
+
+        # Action buttons
+        button_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(20, 0))
+
+        if CLIPBOARD_AVAILABLE:
+            copy_btn = ctk.CTkButton(
+                button_frame,
+                text="📋 Copy Password",
+                font=FONTS['button'],
+                height=40,
+                corner_radius=10,
+                fg_color=COLORS['accent'],
+                hover_color=COLORS['accent_hover'],
+                command=self.copy_password
+            )
+            copy_btn.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        close_btn = ctk.CTkButton(
+            button_frame,
+            text="Close",
+            font=FONTS['button'],
+            height=40,
+            corner_radius=10,
+            fg_color=COLORS['bg_tertiary'],
+            hover_color=COLORS['border'],
+            command=self.dialog.destroy
+        )
+        close_btn.pack(side="right", padx=(10, 0) if CLIPBOARD_AVAILABLE else (0, 0))
+
+    def toggle_password_visibility(self):
+        """Toggle password visibility"""
+        if self.password_shown:
+            self.password_var.set("•" * 12)
+            self.password_shown = False
+        else:
+            self.password_var.set(self.password_data['password'])
+            self.password_shown = True
+
+    def copy_password(self):
+        """Copy password and close dialog"""
+        self.copy_callback(self.password_data['password'], "Password")
+        self.dialog.destroy()
 
 
 class AddPasswordDialog:
     def __init__(self, parent, callback):
         self.callback = callback
 
-        self.dialog = tk.Toplevel(parent)
+        # Create dialog
+        self.dialog = ctk.CTkToplevel(parent)
         self.dialog.title("Add New Password")
-        self.dialog.geometry("420x380")
-        self.dialog.configure(bg='#0D1117')
+        self.dialog.geometry("500x550")  # Slightly larger for bigger text
         self.dialog.resizable(False, False)
-
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
-        # Center the dialog
-        self.dialog.geometry("+%d+%d" % (parent.winfo_rootx() + 150, parent.winfo_rooty() + 150))
+        # Center dialog
+        self.dialog.geometry(f"+{parent.winfo_rootx() + 200}+{parent.winfo_rooty() + 150}")
 
-        self.create_form()
-        self.website_entry.focus()
+        self.create_dialog()
 
-    def create_form(self):
-        # Clean container
-        main_frame = tk.Frame(self.dialog, bg='#161B22')
-        main_frame.pack(expand=True, fill='both', padx=15, pady=15)
+    def create_dialog(self):
+        # Main container
+        main_frame = ctk.CTkFrame(self.dialog, fg_color=COLORS['bg_secondary'], corner_radius=20)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        content_frame = tk.Frame(main_frame, bg='#161B22')
-        content_frame.pack(expand=True, fill='both', padx=20, pady=20)
+        # Content frame
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=25, pady=25)
 
         # Title
-        title_label = tk.Label(content_frame,
-                              text="Add New Password",
-                              font=('SF Pro Display', 16, 'bold'),
-                              fg='#F0F6FC',
-                              bg='#161B22')
-        title_label.pack(pady=(0, 25))
+        title_label = ctk.CTkLabel(
+            content_frame,
+            text="Add New Password",
+            font=FONTS['heading'],
+            text_color=COLORS['text_primary']
+        )
+        title_label.pack(pady=(0, 30))
 
-        # Input fields
-        self.create_input_field(content_frame, "Website", "website_entry")
-        self.create_input_field(content_frame, "Username", "username_entry")
-        self.create_input_field(content_frame, "Password", "password_entry", show='•')
+        # Website field
+        self.website_entry = self.create_input_field(content_frame, "Website")
+
+        # Username field
+        self.username_entry = self.create_input_field(content_frame, "Username")
+
+        # Password field
+        self.password_entry = self.create_input_field(content_frame, "Password", show="•")
 
         # Buttons
-        button_frame = tk.Frame(content_frame, bg='#161B22')
-        button_frame.pack(pady=(25, 0))
+        button_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(30, 0))
 
-        save_btn = ttk.Button(button_frame,
-                             text="Save Password",
-                             command=self.save_password,
-                             style='Primary.TButton')
-        save_btn.pack(side='left', padx=(0, 8))
+        save_btn = ctk.CTkButton(
+            button_frame,
+            text="Save Password",
+            font=FONTS['button'],
+            height=50,  # Taller buttons for bigger text
+            corner_radius=10,
+            fg_color=COLORS['success'],
+            hover_color="#16a34a",
+            command=self.save_password
+        )
+        save_btn.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        cancel_btn = ttk.Button(button_frame,
-                               text="Cancel",
-                               command=self.dialog.destroy,
-                               style='Secondary.TButton')
-        cancel_btn.pack(side='left')
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            font=FONTS['button'],
+            height=50,  # Taller buttons for bigger text
+            corner_radius=10,
+            fg_color=COLORS['bg_tertiary'],
+            hover_color=COLORS['border'],
+            command=self.dialog.destroy
+        )
+        cancel_btn.pack(side="right")
 
-        self.dialog.bind('<Return>', lambda e: self.save_password())
+        # Focus on first field
+        self.website_entry.focus()
 
-    def create_input_field(self, parent, label_text, field_name, show=None):
-        # Label
-        tk.Label(parent, text=label_text,
-                font=('SF Pro Display', 11, 'bold'),
-                fg='#F0F6FC', bg='#161B22').pack(anchor='w', pady=(12, 5))
+    def create_input_field(self, parent, label_text, show=None):
+        """Create a labeled input field"""
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(fill="x", pady=(0, 20))
 
-        # Input field
-        entry = tk.Entry(parent,
-                        font=('SF Pro Display', 11),
-                        width=35,
-                        relief='flat',
-                        bd=0,
-                        bg='#0D1117',
-                        fg='#F0F6FC',
-                        insertbackground='#238636',
-                        highlightthickness=1,
-                        highlightcolor='#238636',
-                        highlightbackground='#30363D',
-                        show=show)
-        entry.pack(pady=(0, 5), ipady=6)
+        label = ctk.CTkLabel(
+            field_frame,
+            text=label_text,
+            font=FONTS['subheading'],
+            text_color=COLORS['text_primary']
+        )
+        label.pack(anchor="w", pady=(0, 8))
 
-        setattr(self, field_name, entry)
+        entry = ctk.CTkEntry(
+            field_frame,
+            font=FONTS['body_medium'],  # Bigger font for input
+            height=45,  # Taller input fields
+            corner_radius=8,
+            border_width=1,
+            border_color=COLORS['border'],
+            fg_color=COLORS['bg_tertiary'],
+            text_color=COLORS['text_primary'],
+            show=show
+        )
+        entry.pack(fill="x")
+
+        return entry
 
     def save_password(self):
+        """Save the password"""
         website = self.website_entry.get().strip()
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
@@ -955,85 +1055,108 @@ class EditPasswordDialog:
         self.callback = callback
         self.existing_data = existing_data
 
-        self.dialog = tk.Toplevel(parent)
+        # Create dialog
+        self.dialog = ctk.CTkToplevel(parent)
         self.dialog.title("Edit Password")
-        self.dialog.geometry("420x380")
-        self.dialog.configure(bg='#0D1117')
+        self.dialog.geometry("500x500")  # Slightly larger for bigger text
         self.dialog.resizable(False, False)
-
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
-        # Center the dialog
-        self.dialog.geometry("+%d+%d" % (parent.winfo_rootx() + 150, parent.winfo_rooty() + 150))
+        # Center dialog
+        self.dialog.geometry(f"+{parent.winfo_rootx() + 200}+{parent.winfo_rooty() + 150}")
 
-        self.create_form()
-        self.website_entry.focus()
+        self.create_dialog()
 
-    def create_form(self):
-        # Clean container
-        main_frame = tk.Frame(self.dialog, bg='#161B22')
-        main_frame.pack(expand=True, fill='both', padx=15, pady=15)
+    def create_dialog(self):
+        # Main container
+        main_frame = ctk.CTkFrame(self.dialog, fg_color=COLORS['bg_secondary'], corner_radius=20)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        content_frame = tk.Frame(main_frame, bg='#161B22')
-        content_frame.pack(expand=True, fill='both', padx=20, pady=20)
+        # Content frame
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=25, pady=25)
 
         # Title
-        title_label = tk.Label(content_frame,
-                              text="Edit Password",
-                              font=('SF Pro Display', 16, 'bold'),
-                              fg='#F0F6FC',
-                              bg='#161B22')
-        title_label.pack(pady=(0, 25))
+        title_label = ctk.CTkLabel(
+            content_frame,
+            text="Edit Password",
+            font=FONTS['heading'],
+            text_color=COLORS['text_primary']
+        )
+        title_label.pack(pady=(0, 20))
 
-        # Input fields with existing data
-        self.create_input_field(content_frame, "Website", "website_entry", self.existing_data['website'])
-        self.create_input_field(content_frame, "Username", "username_entry", self.existing_data['username'])
-        self.create_input_field(content_frame, "Password", "password_entry", self.existing_data['password'], show='•')
+        # Website field
+        self.website_entry = self.create_input_field(content_frame, "Website", self.existing_data['website'])
+
+        # Username field
+        self.username_entry = self.create_input_field(content_frame, "Username", self.existing_data['username'])
+
+        # Password field
+        self.password_entry = self.create_input_field(content_frame, "Password", self.existing_data['password'], show="•")
 
         # Buttons
-        button_frame = tk.Frame(content_frame, bg='#161B22')
-        button_frame.pack(pady=(25, 0))
+        button_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(7, 0))
 
-        update_btn = ttk.Button(button_frame,
-                               text="Update Password",
-                               command=self.update_password,
-                               style='Warning.TButton')
-        update_btn.pack(side='left', padx=(0, 8))
+        update_btn = ctk.CTkButton(
+            button_frame,
+            text="Update Password",
+            font=FONTS['button'],
+            height=50,  # Taller buttons for bigger text
+            corner_radius=10,
+            fg_color=COLORS['warning'],
+            hover_color="#d97706",
+            command=self.update_password
+        )
+        update_btn.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        cancel_btn = ttk.Button(button_frame,
-                               text="Cancel",
-                               command=self.dialog.destroy,
-                               style='Secondary.TButton')
-        cancel_btn.pack(side='left')
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            font=FONTS['button'],
+            height=50,  # Taller buttons for bigger text
+            corner_radius=10,
+            fg_color=COLORS['bg_tertiary'],
+            hover_color=COLORS['border'],
+            command=self.dialog.destroy
+        )
+        cancel_btn.pack(side="right")
 
-        self.dialog.bind('<Return>', lambda e: self.update_password())
+        # Focus on first field
+        self.website_entry.focus()
 
-    def create_input_field(self, parent, label_text, field_name, initial_value="", show=None):
-        # Label
-        tk.Label(parent, text=label_text,
-                font=('SF Pro Display', 11, 'bold'),
-                fg='#F0F6FC', bg='#161B22').pack(anchor='w', pady=(12, 5))
+    def create_input_field(self, parent, label_text, initial_value="", show=None):
+        """Create a labeled input field with initial value"""
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(fill="x", pady=(0, 20))
 
-        # Input field
-        entry = tk.Entry(parent,
-                        font=('SF Pro Display', 11),
-                        width=35,
-                        relief='flat',
-                        bd=0,
-                        bg='#0D1117',
-                        fg='#F0F6FC',
-                        insertbackground='#238636',
-                        highlightthickness=1,
-                        highlightcolor='#238636',
-                        highlightbackground='#303D3D',
-                        show=show)
-        entry.pack(pady=(0, 5), ipady=6)
+        label = ctk.CTkLabel(
+            field_frame,
+            text=label_text,
+            font=FONTS['subheading'],
+            text_color=COLORS['text_primary']
+        )
+        label.pack(anchor="w", pady=(0, 8))
+
+        entry = ctk.CTkEntry(
+            field_frame,
+            font=FONTS['body_medium'],  # Bigger font for input
+            height=45,  # Taller input fields
+            corner_radius=8,
+            border_width=1,
+            border_color=COLORS['border'],
+            fg_color=COLORS['bg_tertiary'],
+            text_color=COLORS['text_primary'],
+            show=show
+        )
+        entry.pack(fill="x")
         entry.insert(0, initial_value)
 
-        setattr(self, field_name, entry)
+        return entry
 
     def update_password(self):
+        """Update the password"""
         website = self.website_entry.get().strip()
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
@@ -1044,6 +1167,7 @@ class EditPasswordDialog:
 
         self.callback(self.existing_data, website, username, password)
         self.dialog.destroy()
+
 
 if __name__ == "__main__":
     print("Starting Password Manager GUI...")
