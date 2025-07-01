@@ -103,21 +103,23 @@ class PasswordManagerGUI:
                  foreground=[('active', '#000000'),
                            ('!active', '#000000')])
 
-        # Modern dark Treeview styling
+        # Modern dark Treeview styling with centered text
         style.configure('Dark.Treeview',
                        background='#0D1117',
                        foreground='#F0F6FC',
                        fieldbackground='#0D1117',
                        font=('SF Pro Display', 11),
                        rowheight=36,
-                       borderwidth=0)
+                       borderwidth=0,
+                       anchor='center')
 
         style.configure('Dark.Treeview.Heading',
                        background='#21262D',
                        foreground='#F0F6FC',
                        font=('SF Pro Display', 11, 'bold'),
                        relief='flat',
-                       borderwidth=1)
+                       borderwidth=1,
+                       anchor='center')
 
     def show_login_screen(self):
         for widget in self.root.winfo_children():
@@ -260,7 +262,8 @@ class PasswordManagerGUI:
         self.password_tree.pack(side='left', expand=True, fill='both', padx=2, pady=2)
         scrollbar.pack(side='right', fill='y', padx=(0, 2), pady=2)
 
-        self.password_tree.bind('<Double-1>', self.show_password_options)
+        # Use single click for Actions column to show context menu
+        self.password_tree.bind('<Double-1>', self.on_treeview_click)
 
         self.create_context_menu()
         self.password_tree.bind('<Button-2>', self.show_context_menu)
@@ -298,17 +301,21 @@ class PasswordManagerGUI:
                 data = self.password_data[item_id]
                 dialog = EditPasswordDialog(self.root, self.update_password_entry, data)
 
+    def copy_to_clipboard(self, text, label):
+        """Copy text to clipboard and show confirmation"""
+        if CLIPBOARD_AVAILABLE:
+            pyperclip.copy(text)
+            messagebox.showinfo("✓ Copied", f"{label} copied to clipboard!", parent=self.root)
+        else:
+            messagebox.showinfo(f"📋 {label}", f"{label}: {text}", parent=self.root)
+
     def copy_password(self, event=None):
         selection = self.password_tree.selection()
         if selection:
             item_id = selection[0]
             if item_id in self.password_data:
                 password = self.password_data[item_id]['password']
-                if CLIPBOARD_AVAILABLE:
-                    pyperclip.copy(password)
-                    messagebox.showinfo("✓ Copied", "Password copied to clipboard!", parent=self.root)
-                else:
-                    messagebox.showinfo("🔑 Password", f"Password: {password}", parent=self.root)
+                self.copy_to_clipboard(password, "Password")
 
     def copy_username(self):
         selection = self.password_tree.selection()
@@ -316,11 +323,7 @@ class PasswordManagerGUI:
             item_id = selection[0]
             if item_id in self.password_data:
                 username = self.password_data[item_id]['username']
-                if CLIPBOARD_AVAILABLE:
-                    pyperclip.copy(username)
-                    messagebox.showinfo("✓ Copied", "Username copied to clipboard!", parent=self.root)
-                else:
-                    messagebox.showinfo("👤 Username", f"Username: {username}", parent=self.root)
+                self.copy_to_clipboard(username, "Username")
 
     def copy_website(self):
         selection = self.password_tree.selection()
@@ -328,11 +331,7 @@ class PasswordManagerGUI:
             item_id = selection[0]
             if item_id in self.password_data:
                 website = self.password_data[item_id]['website']
-                if CLIPBOARD_AVAILABLE:
-                    pyperclip.copy(website)
-                    messagebox.showinfo("✓ Copied", "Website copied to clipboard!", parent=self.root)
-                else:
-                    messagebox.showinfo("🌐 Website", f"Website: {website}", parent=self.root)
+                self.copy_to_clipboard(website, "Website")
 
     def delete_password(self):
         selection = self.password_tree.selection()
@@ -358,13 +357,34 @@ class PasswordManagerGUI:
             if item_id in self.password_data:
                 self.create_password_options_dialog(item_id)
 
+    def on_treeview_click(self, event):
+        """Handle clicks on the treeview for copying and options"""
+        region = self.password_tree.identify_region(event.x, event.y)
+        if region == "cell":
+            column = self.password_tree.identify_column(event.x)
+            item = self.password_tree.identify_row(event.y)
+
+            if item and item in self.password_data:
+                self.password_tree.selection_set(item)
+                data = self.password_data[item]
+
+                if column == '#1':  # Website column
+                    self.copy_to_clipboard(data['website'], "Website")
+                elif column == '#2':  # Username column
+                    self.copy_to_clipboard(data['username'], "Username")
+                elif column == '#3':  # Password column
+                    self.copy_to_clipboard(data['password'], "Password")
+                elif column == '#4':  # Actions column
+                    # Use the same context menu as right-click
+                    self.context_menu.post(event.x_root, event.y_root)
+
     def create_password_options_dialog(self, item_id):
         """Create dialog with password options"""
         data = self.password_data[item_id]
 
         dialog = tk.Toplevel(self.root)
         dialog.title("Password Options")
-        dialog.geometry("450x350")
+        dialog.geometry("450x400")
         dialog.configure(bg='#0D1117')
         dialog.resizable(False, False)
         dialog.transient(self.root)
@@ -435,6 +455,17 @@ class PasswordManagerGUI:
                               style='Secondary.TButton')
         close_btn.pack(side='right')
 
+    def edit_from_dialog(self, data, dialog):
+        """Edit password entry from the password options dialog"""
+        dialog.destroy()  # Close the options dialog first
+        # Find the item_id for this data
+        for item_id, item_data in self.password_data.items():
+            if item_data['id'] == data['id']:
+                self.password_tree.selection_set(item_id)
+                break
+        # Open edit dialog
+        EditPasswordDialog(self.root, self.update_password_entry, data)
+
     def toggle_password_visibility(self, password):
         """Toggle between showing and hiding password"""
         if self.password_shown:
@@ -484,7 +515,7 @@ class PasswordManagerGUI:
                     pwd['website'],
                     pwd['username'],
                     masked_password,
-                    "Right-click for options"
+                    "⚙️ Options"
                 ))
                 self.password_data[item_id] = {
                     'id': pwd['id'],
@@ -492,6 +523,11 @@ class PasswordManagerGUI:
                     'username': pwd['username'],
                     'password': pwd['password']
                 }
+
+                # Center the text in all columns
+                for col in ['Website', 'Username', 'Password', 'Actions']:
+                    self.password_tree.set(item_id, col, self.password_tree.set(item_id, col))
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load passwords: {str(e)}", parent=self.root)
 
