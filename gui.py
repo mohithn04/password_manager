@@ -641,7 +641,7 @@ class PasswordManagerGUI:
         menu = tk.Menu(self.root, tearoff=0,
                       bg=COLORS['bg_tertiary'], fg=COLORS['text_primary'],
                       activebackground=COLORS['accent'], activeforeground='white',
-                      font=FONTS['body'], borderwidth=0)
+                      font=FONTS['small'], borderwidth=0)
 
         menu.add_command(label="👁 View Details",
                         command=lambda: self.show_password_details(password_data))
@@ -803,7 +803,7 @@ class PasswordDetailsDialog:
         # Create dialog
         self.dialog = ctk.CTkToplevel(parent)
         self.dialog.title("Password Details")
-        self.dialog.geometry("500x450")  # Slightly larger for bigger text
+        self.dialog.geometry("500x420")  # Slightly larger for bigger text
         self.dialog.resizable(False, False)
         self.dialog.transient(parent)
         self.dialog.grab_set()
@@ -816,11 +816,11 @@ class PasswordDetailsDialog:
     def create_dialog(self):
         # Main container
         main_frame = ctk.CTkFrame(self.dialog, fg_color=COLORS['bg_secondary'], corner_radius=20)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Content frame
         content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        content_frame.pack(fill="both", expand=True, padx=25, pady=25)
+        content_frame.pack(fill="both", expand=True, padx=40, pady=40)
 
         # Title
         title_label = ctk.CTkLabel(
@@ -865,7 +865,7 @@ class PasswordDetailsDialog:
 
         # Password display frame
         password_display_frame = ctk.CTkFrame(password_frame, fg_color=COLORS['bg_tertiary'], corner_radius=8)
-        password_display_frame.pack(fill="x", pady=(5, 0))
+        password_display_frame.pack(fill="x", pady=(10, 0))
 
         self.password_var = tk.StringVar(value="•" * 12)
         self.password_display = ctk.CTkLabel(
@@ -1105,8 +1105,8 @@ class EditPasswordDialog:
             font=FONTS['button'],
             height=50,  # Taller buttons for bigger text
             corner_radius=10,
-            fg_color=COLORS['warning'],
-            hover_color="#d97706",
+            fg_color=COLORS['accent'],  # Use blue accent instead of warning orange
+            hover_color=COLORS['accent_hover'],  # Consistent hover color
             command=self.update_password
         )
         update_btn.pack(side="left", fill="x", expand=True, padx=(0, 10))
